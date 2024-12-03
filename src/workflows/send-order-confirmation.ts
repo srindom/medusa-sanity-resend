@@ -1,15 +1,18 @@
-import { createStep, createWorkflow, StepResponse, WorkflowResponse } from "@medusajs/framework/workflows-sdk";
+import { createStep, createWorkflow, StepResponse, transform, WorkflowResponse } from "@medusajs/framework/workflows-sdk";
 import { useQueryGraphStep } from "@medusajs/medusa/core-flows";
 import { Modules } from "@medusajs/framework/utils"
-import { CreateNotificationDTO } from "@medusajs/framework/types"
+import { CreateNotificationDTO, OrderDTO } from "@medusajs/framework/types"
 
 export const sendNotificationStep = createStep(
   "send-notification",
-  async (data: CreateNotificationDTO[], { container }) => {
+  async (data: CreateNotificationDTO, { container, idempotencyKey }) => {
     const notificationModuleService = container.resolve(
       Modules.NOTIFICATION
     )
-    const notification = await notificationModuleService.createNotifications(data)
+    const notification = await notificationModuleService.createNotifications({
+      ...data,
+      idempotency_key: idempotencyKey,
+    })
     return new StepResponse(notification)
   }
 )
@@ -65,15 +68,15 @@ export const sendOrderConfirmationWorkflow = createWorkflow(
       }
     }).config({ name: "get-email-banner" })
     
-    const notification = sendNotificationStep([{
+    const notification = sendNotificationStep({
       to: orders[0].email,
       channel: "email",
       template: "order-placed",
       data: {
         email_banner: emailBanner[0],
         order: orders[0]
-      }
-    }])
+      },
+    })
 
     return new WorkflowResponse(notification)
   }
